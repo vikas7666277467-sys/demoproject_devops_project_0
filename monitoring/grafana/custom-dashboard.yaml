@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demoproject-cluster-overview
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  demoproject-cluster-overview.json: |-
+    {
+      "annotations":{"list":[]},
+      "editable":true,
+      "graphTooltip":1,
+      "panels":[
+        {"type":"stat","title":"Ready Nodes","id":1,"gridPos":{"h":4,"w":4,"x":0,"y":0},"targets":[{"expr":"sum(kube_node_status_condition{condition=\"Ready\",status=\"true\"})","legendFormat":"Ready"}]},
+        {"type":"stat","title":"Running Pods","id":2,"gridPos":{"h":4,"w":4,"x":4,"y":0},"targets":[{"expr":"sum(kube_pod_status_phase{phase=\"Running\"})","legendFormat":"Running"}]},
+        {"type":"stat","title":"Deployments","id":3,"gridPos":{"h":4,"w":4,"x":8,"y":0},"targets":[{"expr":"count(kube_deployment_created)","legendFormat":"Deployments"}]},
+        {"type":"stat","title":"Namespaces","id":4,"gridPos":{"h":4,"w":4,"x":12,"y":0},"targets":[{"expr":"count(kube_namespace_created)","legendFormat":"Namespaces"}]},
+        {"type":"timeseries","title":"Node CPU %","id":5,"gridPos":{"h":8,"w":12,"x":0,"y":4},"fieldConfig":{"defaults":{"unit":"percent"}},"targets":[{"expr":"100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))","legendFormat":"{{instance}}"}]},
+        {"type":"timeseries","title":"Node Memory %","id":6,"gridPos":{"h":8,"w":12,"x":12,"y":4},"fieldConfig":{"defaults":{"unit":"percent"}},"targets":[{"expr":"100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)","legendFormat":"{{instance}}"}]},
+        {"type":"timeseries","title":"Filesystem %","id":7,"gridPos":{"h":8,"w":12,"x":0,"y":12},"fieldConfig":{"defaults":{"unit":"percent"}},"targets":[{"expr":"100 * (1-node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\"}/node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\"})","legendFormat":"{{instance}} {{mountpoint}}"}]},
+        {"type":"timeseries","title":"Network Throughput","id":8,"gridPos":{"h":8,"w":12,"x":12,"y":12},"fieldConfig":{"defaults":{"unit":"Bps"}},"targets":[{"expr":"sum by(instance) (rate(node_network_receive_bytes_total{device!=\"lo\"}[5m]))","legendFormat":"RX {{instance}}"},{"expr":"-sum by(instance) (rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m]))","legendFormat":"TX {{instance}}"}]}
+      ],
+      "refresh":"30s",
+      "schemaVersion":39,
+      "tags":["demoproject","kubernetes"],
+      "templating":{"list":[]},
+      "time":{"from":"now-6h","to":"now"},
+      "timezone":"browser",
+      "title":"DEMO Project / Cluster Overview",
+      "uid":"demoproject-overview",
+      "version":1
+    }
+

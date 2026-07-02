@@ -1,0 +1,83 @@
+pipeline {
+  agent any
+
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+    disableConcurrentBuilds()
+    timestamps()
+    timeout(time: 30, unit: 'MINUTES')
+  }
+
+  environment {
+    IMAGE_REPOSITORY = 'demoproject/flask-app'
+    DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+    KUBECONFIG = credentials('kubernetes-kubeconfig')
+  }
+
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+    stage('Build Docker Image') {
+      steps {
+        sh 'docker build --pull --tag ${IMAGE_REPOSITORY}:${BUILD_NUMBER} application'
+      }
+    }
+    stage('Tag Image') {
+      steps { sh 'docker tag ${IMAGE_REPOSITORY}:${BUILD_NUMBER} ${IMAGE_REPOSITORY}:latest' }
+    }
+    stage('Push Image') {
+      steps {
+        sh '''
+          set +x
+          echo "$DOCKERHUB_CREDENTIALS_PSW" | docker login --username "$DOCKERHUB_CREDENTIALS_USR" --password-stdin
+          docker push "${IMAGE_REPOSITORY}:${BUILD_NUMBER}"
+          docker push "${IMAGE_REPOSITORY}:latest"
+          docker logout
+        '''
+      }
+    }
+    stage('Verify Kubernetes Cluster') {
+      steps { sh 'kubectl version --client && kubectl get nodes' }
+    }
+    stage('Deploy Application') {
+      steps {
+        sh '''
+          kubectl apply -f kubernetes/namespace.yaml
+          kubectl apply -f kubernetes/deployment.yaml
+          kubectl apply -f kubernetes/service.yaml
+        '''
+      }
+    }
+    stage('Rolling Update') {
+      steps {
+        sh '''
+          kubectl -n demo set image deployment/flask-app flask-app=${IMAGE_REPOSITORY}:${BUILD_NUMBER}
+          kubectl -n demo set env deployment/flask-app APP_VERSION=${BUILD_NUMBER}
+        '''
+      }
+    }
+    stage('Rollout Status') {
+      steps { sh 'kubectl -n demo rollout status deployment/flask-app --timeout=180s' }
+    }
+    stage('Verify Deployment') {
+      steps {
+        sh '''
+          kubectl -n demo get pods -o wide
+          kubectl -n demo get deployment flask-app
+          kubectl -n demo get service flask-app
+        '''
+      }
+    }
+  }
+
+  post {
+    unsuccessful {
+      sh 'kubectl -n demo rollout undo deployment/flask-app || true'
+    }
+    always {
+      sh 'docker image rm ${IMAGE_REPOSITORY}:${BUILD_NUMBER} ${IMAGE_REPOSITORY}:latest 2>/dev/null || true'
+      cleanWs(deleteDirs: true, notFailBuild: true)
+    }
+  }
+}

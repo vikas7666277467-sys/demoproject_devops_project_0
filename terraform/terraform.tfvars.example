@@ -1,0 +1,17 @@
+aws_region          = "ap-south-1"
+project_name        = "demoproject-devops-project2"
+environment         = "training"
+admin_cidr_blocks   = ["203.0.113.10/32"]
+web_cidr_blocks     = ["0.0.0.0/0"]
+key_name            = "demoproject-admin"
+root_volume_size    = 30
+kubernetes_version  = "1.36"
+
+instance_types = {
+  control_plane = "t3.medium"
+  worker        = "t3.large"
+  jenkins       = "t3.medium"
+}
+
+# Prefer the EC2 key pair or SSM. If used, provide a public key only.
+allowed_ssh_public_key = null

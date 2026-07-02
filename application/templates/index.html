@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DEMO Project</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: radial-gradient(circle at top, #1d4ed8, #07111f 55%); }
+      main { width: min(42rem, 86vw); padding: 3rem; border: 1px solid #60a5fa55; border-radius: 1.25rem; background: #0f172ad9; box-shadow: 0 1.5rem 5rem #0008; }
+      h1 { margin: 0 0 1rem; font-size: clamp(2rem, 7vw, 4rem); line-height: 1; }
+      .status { color: #86efac; font-weight: 700; }
+      dl { display: grid; grid-template-columns: auto 1fr; gap: .5rem 1rem; margin-top: 2rem; }
+      dt { color: #93c5fd; } dd { margin: 0; font-family: ui-monospace, monospace; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="status">● HEALTHY</p>
+      <h1>Welcome to DEMO Project</h1>
+      <p>Running on Kubernetes</p>
+      <dl><dt>Version</dt><dd>{{ version }}</dd><dt>Pod</dt><dd>{{ hostname }}</dd></dl>
+    </main>
+  </body>
+</html>
+
