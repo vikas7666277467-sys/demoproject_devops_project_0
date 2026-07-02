@@ -1,6 +1,6 @@
-# DEMO Project — Amazon Linux 2023 Script-Based Setup
+# DEMO Project 0 — Script-Based Setup
 
-This is the primary setup guide for `demoproject_devops_project2`. It provisions
+This is the primary setup guide for `demoproject_devops_project 0`. It provisions
 four Amazon Linux 2023 EC2 instances with Terraform and uses the repository's
 shell scripts to build a kubeadm Kubernetes cluster, configure Jenkins, deploy a
 Flask application through CI/CD, and install Prometheus and Grafana.
