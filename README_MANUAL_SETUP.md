@@ -1,4 +1,4 @@
-# DEMO Project — Amazon Linux 2023 Manual Setup
+# DEMO Project — 0 With manual setup 
 
 This guide configures the complete project step by step without invoking any
 repository `.sh` file. It is intended for engineers who want to understand each
