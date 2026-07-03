@@ -1,0 +1,383 @@
+# 🚀 DevOps Demo Project -0
+
+## End-to-End CI/CD Pipeline using AWS, Terraform, Kubernetes, Jenkins, Docker, Prometheus & Grafana
+
+---
+
+# 📖 Project Overview
+
+This project demonstrates how to build a complete **Enterprise-Level DevOps CI/CD Pipeline** using modern DevOps tools and best practices.
+
+The objective of this project is to automate the complete software delivery lifecycle—from infrastructure provisioning to application deployment and monitoring—using Infrastructure as Code (IaC), Continuous Integration and Continuous Deployment (CI/CD), Containerization, Kubernetes, and Observability tools.
+
+All infrastructure is provisioned on **Amazon Web Services (AWS)** using **Terraform**, while the Kubernetes cluster is configured manually using **kubeadm**. A **Jenkins** server is used to automate the build and deployment pipeline, and **Prometheus** and **Grafana** provide real-time monitoring and visualization of the Kubernetes cluster.
+
+---
+
+# 🎯 Project Objectives
+
+This project covers the complete DevOps lifecycle, including:
+
+- Provision AWS Infrastructure using Terraform
+- Configure Kubernetes Cluster using kubeadm
+- Install and Configure Jenkins
+- Develop a Python Flask Application
+- Containerize the Application using Docker
+- Push Docker Images to Docker Hub
+- Deploy the Application to Kubernetes
+- Automate Deployment using Jenkins Pipeline
+- Monitor the Kubernetes Cluster using Prometheus
+- Visualize Metrics using Grafana
+- Create Grafana Dashboards
+- Perform Rolling Updates
+- Monitor Application Health
+
+---
+
+# 🛠 Technologies Used
+
+| Category | Technology |
+|-----------|------------|
+| Cloud | AWS EC2 |
+| Infrastructure as Code | Terraform |
+| Operating System | Amazon Linux 2023 |
+| Container Runtime | Docker |
+| Container Orchestration | Kubernetes (kubeadm) |
+| CI/CD | Jenkins |
+| Source Control | Git & GitHub |
+| Container Registry | Docker Hub |
+| Monitoring | Prometheus |
+| Visualization | Grafana |
+| Package Manager | Helm |
+| Programming Language | Python |
+| Framework | Flask |
+| Shell | Bash |
+
+---
+
+# 🏗 High-Level Architecture
+
+```text
+                              GitHub Repository
+                                      │
+                                      ▼
+                              Jenkins Pipeline
+                                      │
+              ┌───────────────────────┼────────────────────────┐
+              │                       │                        │
+              ▼                       ▼                        ▼
+        Build Docker Image      Push Docker Image       Kubernetes Deploy
+              │                       │                        │
+              └───────────────────────┴────────────────────────┘
+                                      │
+                                      ▼
+                            Kubernetes Cluster
+                                      │
+                   ┌──────────────────┴──────────────────┐
+                   │                                     │
+                   ▼                                     ▼
+           Flask Application                     Monitoring Stack
+                                                     │
+                                  ┌──────────────────┴───────────────────┐
+                                  ▼                                      ▼
+                            Prometheus                              Grafana
+```
+
+---
+
+# ☁ AWS Infrastructure
+
+The infrastructure consists of **four EC2 instances** deployed in the same AWS Default VPC.
+
+| Server | Hostname | Purpose |
+|---------|----------|----------|
+| EC2-1 | k8s-control-plane | Kubernetes Control Plane |
+| EC2-2 | k8s-worker1 | Kubernetes Worker Node 1 |
+| EC2-3 | k8s-worker2 | Kubernetes Worker Node 2 |
+| EC2-4 | jenkins-server | Jenkins CI/CD Server |
+
+All instances are deployed using **Terraform**.
+
+---
+
+# 🏛 Infrastructure Architecture
+
+```text
+                     AWS Default VPC
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│                 Single Security Group                        │
+│                                                              │
+│   ┌────────────────────────────────────────────────────┐     │
+│   │                                                    │     │
+│   │      Kubernetes Control Plane                      │     │
+│   │            EC2 Instance                            │     │
+│   └────────────────────────────────────────────────────┘     │
+│                                                              │
+│          │                                     │             │
+│          ▼                                     ▼             │
+│   ┌───────────────┐                    ┌───────────────┐     │
+│   │ Worker Node 1 │                    │ Worker Node 2 │     │
+│   └───────────────┘                    └───────────────┘     │
+│                                                              │
+│                          │                                   │
+│                          ▼                                   │
+│                 ┌──────────────────┐                         │
+│                 │ Jenkins Server   │                         │
+│                 └──────────────────┘                         │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# 🔄 Project Workflow
+
+```text
+Terraform
+      │
+      ▼
+Create AWS Infrastructure
+      │
+      ▼
+Configure Kubernetes Cluster
+      │
+      ▼
+Install Jenkins
+      │
+      ▼
+Develop Flask Application
+      │
+      ▼
+Build Docker Image
+      │
+      ▼
+Push Docker Image to Docker Hub
+      │
+      ▼
+Deploy Application to Kubernetes
+      │
+      ▼
+Install Prometheus & Grafana
+      │
+      ▼
+Monitor Kubernetes Cluster
+```
+
+---
+
+# 📦 Project Components
+
+## Infrastructure
+
+Terraform provisions:
+
+- 4 EC2 Instances
+- Security Group
+- Networking
+- Instance Tags
+
+---
+
+## Kubernetes
+
+The Kubernetes cluster consists of:
+
+- 1 Control Plane Node
+- 2 Worker Nodes
+
+The cluster is created using **kubeadm**.
+
+Networking is configured using **Calico CNI**.
+
+---
+
+## Jenkins
+
+Jenkins is responsible for:
+
+- Pulling source code from GitHub
+- Building Docker Images
+- Tagging Docker Images
+- Pushing Images to Docker Hub
+- Deploying applications to Kubernetes
+- Performing Rolling Updates
+- Verifying Deployments
+
+---
+
+## Docker
+
+Docker is used to:
+
+- Build the Flask Application Image
+- Package Dependencies
+- Push Images to Docker Hub
+
+---
+
+## Kubernetes Deployment
+
+The Flask application is deployed using:
+
+- Namespace
+- Deployment
+- Service
+
+The application is exposed using a **NodePort Service**.
+
+---
+
+## Monitoring
+
+The monitoring stack includes:
+
+- Prometheus
+- Grafana
+- Alertmanager
+- Node Exporter
+- kube-state-metrics
+- Prometheus Operator
+
+Installed using Helm.
+
+---
+
+# ✅ Prerequisites
+
+Before starting the project implementation , ensure the following software is installed and setup is completed .
+
+| Software | Version |
+|-----------|----------|
+| Terraform | v1.x or later |
+| AWS CLI | Latest |
+| Git | Latest |
+| Docker | Latest |
+| kubectl | Latest |
+| Helm | v3 |
+| SSH Client | OpenSSH |
+
+---
+
+# ☁ AWS Prerequisites
+
+Ensure you have:
+
+- AWS Account
+- IAM User with Administrator Access (Lab Environment)
+- AWS CLI Configured
+- Existing EC2 Key Pair
+- Default VPC
+
+Verify AWS CLI
+
+```bash
+aws sts get-caller-identity
+```
+
+---
+
+# 🔐 Security Group Configuration
+
+Terraform should create a single Security Group with the following inbound rules.
+
+| Port | Protocol | Purpose |
+|------|----------|----------|
+| 22 | TCP | SSH |
+| 80 | TCP | HTTP |
+| 443 | TCP | HTTPS |
+| 6443 | TCP | Kubernetes API |
+| 2379-2380 | TCP | etcd |
+| 10250 | TCP | kubelet |
+| 10257 | TCP | Controller Manager |
+| 10259 | TCP | Scheduler |
+| 30000-32767 | TCP | Kubernetes NodePort |
+| 8080 | TCP | Jenkins |
+| 9090 | TCP | Prometheus |
+| 3000 | TCP | Grafana |
+
+Additionally:
+
+- Allow all traffic within the same Security Group for Kubernetes node communication.
+
+---
+
+# 📁 Repository Structure
+
+```text
+demoproject_devops_project2/
+│
+├── terraform/
+│   ├── provider.tf
+│   ├── versions.tf
+│   ├── variables.tf
+│   ├── terraform.tfvars.example
+│   ├── locals.tf
+│   ├── main.tf
+│   ├── outputs.tf
+│   └── README.md
+│
+├── application/
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── index.html
+│
+├── kubernetes/
+│   ├── namespace.yaml
+│   ├── deployment.yaml
+│   └── service.yaml
+│
+├── jenkins/
+│   ├── Jenkinsfile
+│   └── pipeline.md
+│
+├── monitoring/
+│   ├── helm_install.sh
+│   ├── grafana_dashboard.md
+│   ├── prometheus_queries.md
+│   └── alerts.md
+│
+├── bash/
+│   ├── install_kubernetes.sh
+│   ├── install_jenkins.sh
+│   ├── configure_docker.sh
+│   └── join_worker.sh
+│
+├── docs/
+│   ├── PROJECT_ARCHITECTURE.md
+│   ├── INSTALLATION_AND_CONFIGURATION.md
+│   ├── MONITORING_GUIDE.md
+│   ├── TROUBLESHOOTING.md
+│   └── CI_CD_WORKFLOW.md
+│
+├── README.md
+├── LICENSE
+└── .gitignore
+```
+
+---
+
+# 🎓 Learning Outcomes
+
+After completing this project, you will gain hands-on experience with:
+
+- Infrastructure as Code using Terraform
+- AWS EC2 Provisioning
+- Linux Administration
+- Kubernetes Administration
+- kubeadm Cluster Setup
+- Docker Containerization
+- Jenkins CI/CD Pipelines
+- Git & GitHub Workflow
+- Docker Hub Integration
+- Kubernetes Deployments
+- Rolling Updates
+- Helm Package Management
+- Prometheus Monitoring
+- Grafana Dashboard Configuration
+- Kubernetes Troubleshooting
+- DevOps Best Practices
+
+---
+
