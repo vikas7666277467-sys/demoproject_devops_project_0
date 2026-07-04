@@ -1,0 +1,5045 @@
+# Part 4A - Installing and Configuring the Jenkins Server
+
+In this section, we will prepare the Jenkins Server for Continuous Integration and Continuous Deployment (CI/CD).
+
+At the end of this section, you will have a fully functional Jenkins server with the required tools installed to build Docker images and deploy applications to your Kubernetes cluster.
+
+---
+
+# Jenkins Architecture
+
+```text
+                     GitHub Repository
+                            │
+                            │
+                            ▼
+                     Jenkins Server
+                ┌─────────────────────┐
+                │      Jenkins        │
+                │---------------------│
+                │ Git                 │
+                │ Docker              │
+                │ kubectl             │
+                │ Java                │
+                │ AWS CLI             │
+                └──────────┬──────────┘
+                           │
+               Builds Docker Image
+                           │
+                           ▼
+                     Docker Hub
+                           │
+                           ▼
+                  Kubernetes Cluster
+```
+
+---
+
+# Server Details
+
+| Server | Purpose |
+|----------|----------|
+| jenkins-server | CI/CD Server |
+
+---
+
+# Prerequisites
+
+Before starting this section, verify:
+
+- Kubernetes Cluster is running.
+- All Kubernetes nodes are in the Ready state.
+- Jenkins EC2 instance is running.
+- SSH access is working.
+- Internet connectivity is available.
+
+---
+
+# Step 1 - Connect to Jenkins Server
+
+```bash
+ssh -i demo-key.pem ec2-user@<Jenkins-Public-IP>
+```
+
+Verify hostname.
+
+```bash
+hostname
+```
+
+Expected Output
+
+```text
+jenkins-server
+```
+
+---
+
+# Step 2 - Update the Operating System
+
+Update all installed packages.
+
+```bash
+sudo dnf update -y
+```
+
+---
+
+# Step 3 - Install Java
+
+Jenkins requires Java.
+
+Install OpenJDK 17.
+
+```bash
+sudo dnf install java-17-amazon-corretto -y
+```
+
+Verify.
+
+```bash
+java -version
+```
+
+Expected Output
+
+```text
+openjdk version "17"
+```
+
+---
+
+# Step 4 - Install Jenkins Repository
+
+Import Jenkins GPG Key.
+
+```bash
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+```
+
+Create the repository.
+
+```bash
+sudo curl -o /etc/yum.repos.d/jenkins.repo \
+https://pkg.jenkins.io/redhat-stable/jenkins.repo
+```
+
+---
+
+# Step 5 - Install Jenkins
+
+```bash
+sudo dnf install jenkins -y
+```
+
+Verify installation.
+
+```bash
+jenkins --version
+```
+
+---
+
+# Step 6 - Enable Jenkins Service
+
+```bash
+sudo systemctl enable jenkins
+```
+
+Start Jenkins.
+
+```bash
+sudo systemctl start jenkins
+```
+
+Verify.
+
+```bash
+sudo systemctl status jenkins
+```
+
+Expected
+
+```text
+Active: active (running)
+```
+
+---
+
+# Step 7 - Verify Jenkins Port
+
+```bash
+sudo ss -tulpn | grep 8080
+```
+
+Expected
+
+```text
+LISTEN
+
+0.0.0.0:8080
+```
+
+---
+
+# Step 8 - Access Jenkins
+
+Open your browser.
+
+```
+http://<Jenkins-Public-IP>:8080
+```
+
+Example
+
+```
+http://18.xx.xx.xx:8080
+```
+
+You should see
+
+```
+Unlock Jenkins
+```
+
+---
+
+# Step 9 - Unlock Jenkins
+
+Retrieve the administrator password.
+
+```bash
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+```
+
+Example
+
+```
+6e7c85cfe7c34d1c9e5......
+```
+
+Copy the password.
+
+Paste it into the Jenkins web page.
+
+Click
+
+```
+Continue
+```
+
+---
+
+# Step 10 - Install Suggested Plugins
+
+Select
+
+```
+Install Suggested Plugins
+```
+
+Jenkins installs the default plugin set.
+
+This may take several minutes.
+
+---
+
+# Step 11 - Create the Administrator User
+
+Fill in the required information.
+
+Example
+
+| Field | Value |
+|--------|-------|
+| Username | admin |
+| Password | Password@123 |
+| Full Name | DevOps Admin |
+| Email | admin@example.com |
+
+Click
+
+```
+Save and Continue
+```
+
+---
+
+# Step 12 - Configure Jenkins URL
+
+Example
+
+```
+http://<Jenkins-Public-IP>:8080
+```
+
+Click
+
+```
+Save and Finish
+```
+
+Click
+
+```
+Start Using Jenkins
+```
+
+---
+
+# Step 13 - Verify Jenkins Dashboard
+
+You should now see the Jenkins Dashboard.
+
+Example
+
+```text
+Dashboard
+
+Manage Jenkins
+
+New Item
+
+Build History
+```
+
+---
+
+# Step 14 - Install Git
+
+Jenkins uses Git to clone repositories.
+
+```bash
+sudo dnf install git -y
+```
+
+Verify.
+
+```bash
+git --version
+```
+
+Expected
+
+```text
+git version 2.x
+```
+
+---
+
+# Step 15 - Install Docker
+
+```bash
+sudo dnf install docker -y
+```
+
+Enable Docker.
+
+```bash
+sudo systemctl enable docker
+```
+
+Start Docker.
+
+```bash
+sudo systemctl start docker
+```
+
+Verify.
+
+```bash
+docker version
+```
+
+---
+
+# Step 16 - Allow Jenkins to Use Docker
+
+Add the Jenkins user to the Docker group.
+
+```bash
+sudo usermod -aG docker jenkins
+```
+
+Restart Docker.
+
+```bash
+sudo systemctl restart docker
+```
+
+Restart Jenkins.
+
+```bash
+sudo systemctl restart jenkins
+```
+
+Verify.
+
+```bash
+groups jenkins
+```
+
+Expected
+
+```text
+jenkins docker
+```
+
+---
+
+# Step 17 - Install kubectl
+
+Create the Kubernetes repository.
+
+```bash
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/v1.30/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/v1.30/rpm/repodata/repomd.xml.key
+exclude=kubelet kubeadm kubectl
+EOF
+```
+
+Install kubectl.
+
+```bash
+sudo dnf install -y kubectl --disableexcludes=kubernetes
+```
+
+Verify.
+
+```bash
+kubectl version --client
+```
+
+---
+
+# Step 18 - Install AWS CLI
+
+```bash
+sudo dnf install awscli -y
+```
+
+Verify.
+
+```bash
+aws --version
+```
+
+---
+
+# Step 19 - Install unzip
+
+```bash
+sudo dnf install unzip -y
+```
+
+---
+
+# Step 20 - Configure SSH Access (Optional)
+
+Generate an SSH key for the Jenkins user.
+
+```bash
+sudo su - jenkins
+
+ssh-keygen
+```
+
+This key can be used later to connect to GitHub or Kubernetes servers if required.
+
+Exit.
+
+```bash
+exit
+```
+
+---
+
+# Step 21 - Verify Installed Software
+
+Java
+
+```bash
+java -version
+```
+
+Git
+
+```bash
+git --version
+```
+
+Docker
+
+```bash
+docker version
+```
+
+kubectl
+
+```bash
+kubectl version --client
+```
+
+AWS CLI
+
+```bash
+aws --version
+```
+
+Jenkins
+
+```bash
+sudo systemctl status jenkins
+```
+
+All components should be installed successfully.
+
+---
+
+# Verification Checklist
+
+Before proceeding, verify the following:
+
+- Jenkins installed successfully
+- Java installed
+- Git installed
+- Docker installed
+- kubectl installed
+- AWS CLI installed
+- Jenkins web interface accessible
+- Jenkins unlocked
+- Administrator account created
+- Docker service running
+- Jenkins service running
+- Jenkins user added to the Docker group
+
+---
+
+# Common Troubleshooting
+
+## Jenkins Not Starting
+
+Check the service.
+
+```bash
+sudo systemctl status jenkins
+```
+
+View logs.
+
+```bash
+sudo journalctl -u jenkins -f
+```
+
+---
+
+## Port 8080 Not Accessible
+
+Verify the Security Group allows TCP port **8080**.
+
+Check locally.
+
+```bash
+sudo ss -tulpn | grep 8080
+```
+
+---
+
+## Docker Permission Denied
+
+Ensure the Jenkins user belongs to the Docker group.
+
+```bash
+groups jenkins
+```
+
+If not, run:
+
+```bash
+sudo usermod -aG docker jenkins
+sudo systemctl restart docker
+sudo systemctl restart jenkins
+```
+
+---
+
+## kubectl Command Not Found
+
+Verify installation.
+
+```bash
+which kubectl
+
+kubectl version --client
+```
+
+---
+
+
+---
+
+# Next Section In **Part 4B**
+
+# Part 4B-1 - Configuring Jenkins for CI/CD
+
+In this section, we will configure Jenkins so that it is ready to build Docker images, connect to GitHub, authenticate with Docker Hub, and communicate with the Kubernetes cluster.
+
+By the end of this section, Jenkins will be fully configured for CI/CD.
+
+---
+
+# Jenkins Configuration Workflow
+
+```text
+                    Jenkins Installation
+                             │
+                             ▼
+                   Install Required Plugins
+                             │
+                             ▼
+                  Configure Global Tools
+                             │
+                             ▼
+                  Configure Git Installation
+                             │
+                             ▼
+                Configure Docker Installation
+                             │
+                             ▼
+               Configure GitHub Credentials
+                             │
+                             ▼
+             Configure Docker Hub Credentials
+                             │
+                             ▼
+                  Verify Jenkins Configuration
+```
+
+---
+
+# Step 1 - Open Jenkins Dashboard
+
+Open Jenkins in your browser.
+
+```
+http://<Jenkins-Public-IP>:8080
+```
+
+Login using your administrator credentials.
+
+---
+
+# Step 2 - Install Required Plugins
+
+Navigate to
+
+```
+Manage Jenkins
+        ↓
+Plugins
+        ↓
+Available Plugins
+```
+
+Install the following plugins.
+
+| Plugin | Purpose |
+|---------|----------|
+| Git | Clone GitHub Repository |
+| GitHub | GitHub Integration |
+| Pipeline | Jenkins Pipeline |
+| Pipeline: Stage View | Pipeline Visualization |
+| Docker Pipeline | Build Docker Images |
+| Credentials Binding | Secure Credentials |
+| SSH Agent | SSH Authentication |
+| Kubernetes CLI | Execute kubectl Commands |
+| Blue Ocean *(Optional)* | Modern Pipeline UI |
+
+After selecting the plugins, click
+
+```
+Install
+```
+
+Restart Jenkins if prompted.
+
+---
+
+# Step 3 - Verify Installed Plugins
+
+Navigate to
+
+```
+Manage Jenkins
+
+↓
+
+Plugins
+
+↓
+
+Installed Plugins
+```
+
+Verify all plugins are installed successfully.
+
+---
+
+# Step 4 - Configure Global Tools
+
+Navigate to
+
+```
+Manage Jenkins
+
+↓
+
+Tools
+```
+
+---
+
+# Step 5 - Configure Git
+
+Scroll to
+
+```
+Git Installations
+```
+
+Click
+
+```
+Add Git
+```
+
+Configuration
+
+| Field | Value |
+|---------|----------|
+| Name | Git |
+| Path | /usr/bin/git |
+
+Click
+
+```
+Save
+```
+
+---
+
+# Step 6 - Verify Git
+
+Run on Jenkins Server.
+
+```bash
+which git
+```
+
+Expected
+
+```text
+/usr/bin/git
+```
+
+Verify version.
+
+```bash
+git --version
+```
+
+---
+
+# Step 7 - Configure Docker
+
+Verify Docker.
+
+```bash
+docker version
+```
+
+Verify Jenkins user.
+
+```bash
+groups jenkins
+```
+
+Expected
+
+```text
+jenkins docker
+```
+
+Restart Jenkins.
+
+```bash
+sudo systemctl restart jenkins
+```
+
+---
+
+# Step 8 - Test Docker Access
+
+Switch to Jenkins user.
+
+```bash
+sudo su - jenkins
+```
+
+Run
+
+```bash
+docker ps
+```
+
+Expected
+
+```text
+CONTAINER ID
+
+IMAGE
+
+STATUS
+```
+
+If Permission Denied appears,
+
+Run
+
+```bash
+sudo usermod -aG docker jenkins
+
+sudo systemctl restart docker
+
+sudo systemctl restart jenkins
+```
+
+---
+
+# Step 9 - Configure Credentials
+
+Navigate to
+
+```
+Manage Jenkins
+
+↓
+
+Credentials
+
+↓
+
+System
+
+↓
+
+Global Credentials
+
+↓
+
+Add Credentials
+```
+
+---
+
+# Step 10 - Add GitHub Credentials
+
+Click
+
+```
+Add Credentials
+```
+
+Configuration
+
+| Field | Value |
+|---------|----------|
+| Kind | Username with Password |
+| Username | GitHub Username |
+| Password | GitHub Personal Access Token |
+| ID | github-creds |
+| Description | GitHub Credentials |
+
+Click
+
+```
+Create
+```
+
+---
+
+# Step 11 - Create GitHub Personal Access Token
+
+Navigate to
+
+```
+GitHub
+
+↓
+
+Settings
+
+↓
+
+Developer Settings
+
+↓
+
+Personal Access Tokens
+
+↓
+
+Tokens (Classic)
+
+↓
+
+Generate New Token
+```
+
+Grant the following permissions.
+
+```
+repo
+
+workflow
+
+read:org
+
+admin:public_key
+```
+
+Copy the token.
+
+Use it as the password in Jenkins.
+
+---
+
+# Step 12 - Verify GitHub Credentials
+
+Navigate to
+
+```
+Manage Jenkins
+
+↓
+
+Credentials
+```
+
+Verify
+
+```
+github-creds
+```
+
+exists.
+
+---
+
+# Step 13 - Add Docker Hub Credentials
+
+Navigate to
+
+```
+Manage Jenkins
+
+↓
+
+Credentials
+
+↓
+
+Global
+
+↓
+
+Add Credentials
+```
+
+Configuration
+
+| Field | Value |
+|---------|----------|
+| Kind | Username with Password |
+| Username | Docker Hub Username |
+| Password | Docker Hub Password / Access Token |
+| ID | dockerhub-creds |
+| Description | Docker Hub Credentials |
+
+Click
+
+```
+Create
+```
+
+---
+
+# Step 14 - Verify Docker Hub Login
+
+Run
+
+```bash
+docker login
+```
+
+Login using your Docker Hub credentials.
+
+Expected
+
+```text
+Login Succeeded
+```
+
+Logout
+
+```bash
+docker logout
+```
+
+---
+
+# Step 15 - Configure Jenkins Home
+
+Verify Jenkins Home.
+
+```bash
+echo $JENKINS_HOME
+```
+
+Usually
+
+```text
+/var/lib/jenkins
+```
+
+Verify.
+
+```bash
+ls -l /var/lib/jenkins
+```
+
+---
+
+# Step 16 - Verify Workspace
+
+Navigate to
+
+```
+Dashboard
+
+↓
+
+New Item
+```
+
+Create
+
+```
+Test-Workspace
+```
+
+Run once.
+
+Verify.
+
+```bash
+ls -l /var/lib/jenkins/workspace
+```
+
+Expected
+
+```text
+Test-Workspace
+```
+
+---
+
+# Step 17 - Test Git Clone
+
+Clone your GitHub repository manually.
+
+```bash
+git clone https://github.com/<GitHub-Username>/<Repository>.git
+```
+
+Verify.
+
+```bash
+ls
+```
+
+You should see all project files.
+
+---
+
+# Step 18 - Verify Docker Build
+
+Navigate to your project directory.
+
+```bash
+cd demoproject_devops_project2/application
+```
+
+Build the image.
+
+```bash
+docker build -t flask-test .
+```
+
+Verify.
+
+```bash
+docker images
+```
+
+Expected
+
+```text
+flask-test
+```
+
+---
+
+# Step 19 - Push Test Image
+
+Tag image.
+
+```bash
+docker tag flask-test <dockerhub-username>/flask-test:latest
+```
+
+Push.
+
+```bash
+docker push <dockerhub-username>/flask-test:latest
+```
+
+Verify the image appears in Docker Hub.
+
+---
+
+# Step 20 - Security Best Practices
+
+Never hardcode passwords inside:
+
+- Jenkinsfile
+- Shell Scripts
+- Terraform
+- Kubernetes YAML
+
+Always use
+
+```
+Jenkins Credentials
+```
+
+Store:
+
+- GitHub Token
+- Docker Hub Password
+- kubeconfig
+- SSH Keys
+
+inside Jenkins Credentials.
+
+---
+
+# Verification Checklist
+
+Verify the following before moving to the next section.
+
+- Jenkins Dashboard accessible
+- Required plugins installed
+- Git configured
+- Docker working
+- Jenkins user can run Docker
+- GitHub credentials added
+- Docker Hub credentials added
+- Docker build successful
+- Docker push successful
+- Jenkins workspace created
+
+---
+
+# Common Troubleshooting
+
+## Git Not Found
+
+Verify
+
+```bash
+which git
+```
+
+If not installed,
+
+```bash
+sudo dnf install git -y
+```
+
+---
+
+## Docker Permission Denied
+
+Verify
+
+```bash
+groups jenkins
+```
+
+Expected
+
+```text
+docker
+```
+
+Restart services.
+
+```bash
+sudo systemctl restart docker
+
+sudo systemctl restart jenkins
+```
+
+---
+
+## GitHub Authentication Failed
+
+Verify
+
+- GitHub Token
+- Repository Permissions
+- Repository URL
+- Jenkins Credentials
+
+---
+
+## Docker Push Access Denied
+
+Verify
+
+```bash
+docker login
+```
+
+Confirm the repository exists in Docker Hub and that the credentials stored in Jenkins are correct.
+
+---
+
+# Learning Outcomes
+
+After completing this section, you have successfully:
+
+- Installed Jenkins plugins
+- Configured Git
+- Configured Docker
+- Configured GitHub authentication
+- Configured Docker Hub authentication
+- Verified Docker image build
+- Verified Docker image push
+- Prepared Jenkins for CI/CD
+
+---
+
+# Next Section In **Part 4B-2**
+
+# Part 4B-2 - Integrating Jenkins with the Kubernetes Cluster
+
+In this section, we will integrate the Jenkins server with the Kubernetes cluster so that Jenkins can deploy applications directly to Kubernetes.
+
+At the end of this section, Jenkins will be able to:
+
+- Connect to the Kubernetes API Server
+- Execute `kubectl` commands
+- Deploy applications to Kubernetes
+- Perform rolling updates
+- Verify deployments
+
+---
+
+# Integration Architecture
+
+```text
+                     Jenkins Server
+                ┌─────────────────────┐
+                │      Jenkins        │
+                │---------------------│
+                │ kubectl             │
+                │ kubeconfig          │
+                │ Docker              │
+                └─────────┬───────────┘
+                          │
+                 Kubernetes API Server
+                     Port 6443
+                          │
+                          ▼
+               Kubernetes Control Plane
+                          │
+         ┌────────────────┴────────────────┐
+         ▼                                 ▼
+   Worker Node 1                     Worker Node 2
+```
+
+---
+
+# Prerequisites
+
+Before starting this section, verify:
+
+- Kubernetes cluster is healthy.
+- Jenkins is installed.
+- kubectl is installed on the Jenkins server.
+- Docker is installed.
+- Jenkins user belongs to the Docker group.
+
+Verify.
+
+```bash
+kubectl version --client
+
+docker version
+```
+
+---
+
+# Step 1 - Verify Kubernetes Cluster
+
+Login to the Control Plane.
+
+```bash
+kubectl get nodes
+```
+
+Expected
+
+```text
+NAME                 STATUS   ROLES
+
+k8s-control-plane    Ready    control-plane
+
+k8s-worker1          Ready
+
+k8s-worker2          Ready
+```
+
+---
+
+# Step 2 - Copy kubeconfig to Jenkins Server
+
+The Kubernetes cluster was created using the **root** user on the Control Plane.
+
+The kubeconfig file is located at:
+
+```text
+/etc/kubernetes/admin.conf
+```
+
+Copy it to the Jenkins server.
+
+Example
+
+```bash
+scp /etc/kubernetes/admin.conf \
+ec2-user@<Jenkins-Private-IP>:/home/ec2-user/
+```
+
+---
+
+# Step 3 - Create Jenkins kubeconfig Directory
+
+Login to the Jenkins server.
+
+```bash
+ssh ec2-user@<Jenkins-Public-IP>
+```
+
+Create the directory.
+
+```bash
+sudo mkdir -p /var/lib/jenkins/.kube
+```
+
+---
+
+# Step 4 - Move kubeconfig
+
+Move the configuration file.
+
+```bash
+sudo mv /home/ec2-user/admin.conf \
+/var/lib/jenkins/.kube/config
+```
+
+---
+
+# Step 5 - Change Ownership
+
+Grant Jenkins access.
+
+```bash
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube
+```
+
+Set permissions.
+
+```bash
+sudo chmod 600 /var/lib/jenkins/.kube/config
+```
+
+---
+
+# Step 6 - Configure KUBECONFIG
+
+Edit the Jenkins user's shell profile.
+
+```bash
+sudo vi /var/lib/jenkins/.bash_profile
+```
+
+Add
+
+```bash
+export KUBECONFIG=/var/lib/jenkins/.kube/config
+```
+
+Reload.
+
+```bash
+source /var/lib/jenkins/.bash_profile
+```
+
+---
+
+# Step 7 - Test Kubernetes Access
+
+Switch to the Jenkins user.
+
+```bash
+sudo su - jenkins
+```
+
+Verify.
+
+```bash
+kubectl get nodes
+```
+
+Expected
+
+```text
+NAME                 STATUS
+
+k8s-control-plane    Ready
+
+k8s-worker1          Ready
+
+k8s-worker2          Ready
+```
+
+---
+
+# Step 8 - Verify Cluster Information
+
+```bash
+kubectl cluster-info
+```
+
+Expected
+
+```text
+Kubernetes control plane is running at
+
+https://172.xx.xx.xx:6443
+```
+
+---
+
+# Step 9 - Verify Namespaces
+
+```bash
+kubectl get ns
+```
+
+Expected
+
+```text
+default
+
+kube-system
+
+kube-public
+
+kube-node-lease
+```
+
+---
+
+# Step 10 - Verify Deployments
+
+```bash
+kubectl get deployments -A
+```
+
+---
+
+# Step 11 - Verify Services
+
+```bash
+kubectl get svc -A
+```
+
+---
+
+# Step 12 - Verify Pods
+
+```bash
+kubectl get pods -A
+```
+
+---
+
+# Step 13 - Create a Test Namespace
+
+```bash
+kubectl create namespace demo
+```
+
+Verify.
+
+```bash
+kubectl get ns
+```
+
+---
+
+# Step 14 - Deploy a Test Application
+
+Create a deployment.
+
+```bash
+kubectl create deployment nginx \
+--image=nginx \
+-n demo
+```
+
+Verify.
+
+```bash
+kubectl get deployments -n demo
+```
+
+---
+
+# Step 15 - Expose the Application
+
+```bash
+kubectl expose deployment nginx \
+--type=NodePort \
+--port=80 \
+-n demo
+```
+
+Verify.
+
+```bash
+kubectl get svc -n demo
+```
+
+Expected
+
+```text
+NAME
+
+nginx
+
+TYPE
+
+NodePort
+```
+
+---
+
+# Step 16 - Scale the Deployment
+
+```bash
+kubectl scale deployment nginx \
+--replicas=3 \
+-n demo
+```
+
+Verify.
+
+```bash
+kubectl get pods -n demo -o wide
+```
+
+Expected
+
+```text
+3 Running Pods
+```
+
+---
+
+# Step 17 - Delete the Test Deployment
+
+```bash
+kubectl delete namespace demo
+```
+
+Verify.
+
+```bash
+kubectl get ns
+```
+
+---
+
+# Step 18 - Configure Jenkins Environment Variables (Optional)
+
+Navigate to
+
+```
+Manage Jenkins
+
+↓
+
+System
+
+↓
+
+Global Properties
+```
+
+Enable
+
+```
+Environment Variables
+```
+
+Add
+
+| Name | Value |
+|------|-------|
+| KUBECONFIG | /var/lib/jenkins/.kube/config |
+
+Save the configuration.
+
+> This step is optional if the Jenkins pipeline explicitly exports `KUBECONFIG` before running `kubectl`.
+
+---
+
+# Step 19 - Restart Jenkins
+
+```bash
+sudo systemctl restart jenkins
+```
+
+Verify.
+
+```bash
+sudo systemctl status jenkins
+```
+
+---
+
+# Step 20 - Verify Jenkins User
+
+```bash
+sudo su - jenkins
+
+kubectl get nodes
+```
+
+If the nodes are displayed successfully, Jenkins can communicate with the Kubernetes cluster.
+
+---
+
+# Verification Checklist
+
+Verify the following:
+
+- kubectl installed
+- kubeconfig copied
+- Jenkins user owns kubeconfig
+- kubectl get nodes works
+- kubectl get pods works
+- kubectl get svc works
+- Jenkins can deploy resources
+- Jenkins can delete resources
+
+---
+
+# Common Troubleshooting
+
+## Unable to Connect to the Cluster
+
+Verify the API server is reachable.
+
+```bash
+kubectl cluster-info
+```
+
+If you see a timeout:
+
+- Confirm the Control Plane is running.
+- Verify Security Group allows TCP **6443**.
+- Ensure Jenkins and the Control Plane are in the same VPC.
+- Check that the Control Plane's private IP in the kubeconfig is correct.
+
+---
+
+## Permission Denied
+
+Verify ownership.
+
+```bash
+ls -l /var/lib/jenkins/.kube
+```
+
+Expected owner:
+
+```text
+jenkins jenkins
+```
+
+Fix if necessary.
+
+```bash
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube
+```
+
+---
+
+## Connection Refused
+
+Check the Kubernetes API Server.
+
+```bash
+kubectl get pods -n kube-system
+```
+
+Verify the API Server pod is running.
+
+---
+
+## memcache.go Errors
+
+Example
+
+```text
+couldn't get current server API group list
+```
+
+Possible causes:
+
+- Incorrect kubeconfig
+- Network connectivity issues
+- API Server unavailable
+- Port 6443 blocked
+
+---
+
+# Learning Outcomes
+
+After completing this section, you have successfully:
+
+- Connected Jenkins to the Kubernetes cluster
+- Configured kubeconfig for the Jenkins user
+- Verified cluster connectivity
+- Tested Kubernetes deployments
+- Confirmed Jenkins can execute kubectl commands
+- Prepared Jenkins for automated CI/CD deployments
+
+---
+
+# Next Section
+
+In **Part 4C**, we will build the complete Jenkins CI/CD pipeline.
+
+The pipeline will:
+
+- Clone the application from GitHub
+- Build the Docker image
+- Tag the image with the Jenkins build number
+- Push the image to Docker Hub
+- Deploy the application to Kubernetes
+- Perform a rolling update
+- Verify the rollout
+- Display Deployments, Pods, and Services
+- Validate the application deployment automatically
+
+# Part 4C-1 - Creating the Jenkins CI/CD Pipeline
+
+In this section, we will configure Jenkins to automate the complete application deployment process.
+
+By the end of this section, Jenkins will be able to:
+
+- Clone source code from GitHub
+- Build the Docker image
+- Tag the Docker image
+- Push the image to Docker Hub
+- Connect to the Kubernetes cluster
+- Deploy the application
+- Perform rolling updates
+
+> **Note:** In this section, we will configure the Jenkins Pipeline. The actual execution and verification of the pipeline will be covered in **Part 4C-2**.
+
+---
+
+# CI/CD Workflow
+
+```text
+              Developer
+                  │
+                  ▼
+         Push Code to GitHub
+                  │
+                  ▼
+         Jenkins Pipeline Triggered
+                  │
+      ┌───────────┴───────────┐
+      ▼                       ▼
+ Checkout Code         Build Docker Image
+      │                       │
+      └───────────┬───────────┘
+                  ▼
+          Push to Docker Hub
+                  │
+                  ▼
+      Deploy to Kubernetes
+                  │
+                  ▼
+          Rolling Update
+                  │
+                  ▼
+         Verify Deployment
+```
+
+---
+
+# Step 1 - Create a GitHub Repository
+
+Create a new GitHub repository.
+
+Example
+
+```
+demoproject_devops_project2
+```
+
+---
+
+# Step 2 - Clone the Repository
+
+Clone the repository to your local machine.
+
+```bash
+git clone https://github.com/<GitHub-Username>/demoproject_devops_project2.git
+```
+
+Move into the repository.
+
+```bash
+cd demoproject_devops_project2
+```
+
+---
+
+# Step 3 - Repository Structure
+
+Your repository should look like:
+
+```text
+demoproject_devops_project2/
+
+├── application/
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── Dockerfile
+│
+├── kubernetes/
+│   ├── namespace.yaml
+│   ├── deployment.yaml
+│   └── service.yaml
+│
+├── terraform/
+│
+├── monitoring/
+│
+├── jenkins/
+│   └── Jenkinsfile
+│
+├── docs/
+│
+└── README.md
+```
+
+---
+
+# Step 4 - Push the Initial Project
+
+```bash
+git add .
+
+git commit -m "Initial Project"
+
+git push origin main
+```
+
+Verify the project appears in GitHub.
+
+---
+
+# Step 5 - Create a New Jenkins Pipeline
+
+Open Jenkins.
+
+```
+Dashboard
+
+↓
+
+New Item
+```
+
+Project Name
+
+```
+Flask-CICD-Pipeline
+```
+
+Project Type
+
+```
+Pipeline
+```
+
+Click
+
+```
+OK
+```
+
+---
+
+# Step 6 - Configure General Settings
+
+Enable
+
+```
+Discard Old Builds
+```
+
+Example
+
+```
+Days to keep builds
+
+30
+```
+
+---
+
+# Step 7 - Configure Build Triggers
+
+For now, leave **Build Triggers** disabled.
+
+We will configure **GitHub Webhooks** in **Part 4C-2**.
+
+For testing, we will manually trigger the pipeline.
+
+---
+
+# Step 8 - Configure Pipeline Definition
+
+Navigate to
+
+```
+Pipeline
+
+↓
+
+Definition
+```
+
+Select
+
+```
+Pipeline script from SCM
+```
+
+---
+
+# Step 9 - Configure Source Code Management
+
+SCM
+
+```
+Git
+```
+
+Repository URL
+
+```
+https://github.com/<GitHub-Username>/demoproject_devops_project2.git
+```
+
+Credentials
+
+```
+github-creds
+```
+
+Branch
+
+```
+*/main
+```
+
+Script Path
+
+```
+jenkins/Jenkinsfile
+```
+
+Save the configuration.
+
+---
+
+# Step 10 - Jenkinsfile Location
+
+Create the following file inside the repository.
+
+```text
+jenkins/
+
+└── Jenkinsfile
+```
+
+---
+
+# Step 11 - Create the Jenkinsfile
+
+```groovy
+pipeline {
+
+    agent any
+
+    environment {
+
+        IMAGE_NAME = "demoproject/flask-app"
+
+        TAG = "${BUILD_NUMBER}"
+
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+
+    }
+
+    stages {
+
+        stage('Checkout Source Code') {
+
+            steps {
+
+                checkout scm
+
+            }
+
+        }
+
+        stage('Verify Workspace') {
+
+            steps {
+
+                sh 'pwd'
+
+                sh 'ls -lrt'
+
+            }
+
+        }
+
+        stage('Build Docker Image') {
+
+            steps {
+
+                sh '''
+                docker build -t $IMAGE_NAME:$TAG application/
+                docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
+                '''
+
+            }
+
+        }
+
+        stage('Docker Login') {
+
+            steps {
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login \
+                    -u "$DOCKER_USER" \
+                    --password-stdin
+                    '''
+
+                }
+
+            }
+
+        }
+
+        stage('Push Docker Image') {
+
+            steps {
+
+                sh '''
+                docker push $IMAGE_NAME:$TAG
+
+                docker push $IMAGE_NAME:latest
+                '''
+
+            }
+
+        }
+
+        stage('Verify Kubernetes Cluster') {
+
+            steps {
+
+                sh '''
+
+                export KUBECONFIG=$KUBECONFIG
+
+                kubectl get nodes
+
+                '''
+
+            }
+
+        }
+
+    }
+
+}
+```
+
+---
+
+# Pipeline Stage Explanation
+
+## Stage 1
+
+```
+Checkout Source Code
+```
+
+Purpose
+
+- Clone GitHub Repository
+
+---
+
+## Stage 2
+
+```
+Verify Workspace
+```
+
+Purpose
+
+- Display workspace
+- Verify repository cloned successfully
+
+Commands
+
+```bash
+pwd
+
+ls -lrt
+```
+
+---
+
+## Stage 3
+
+```
+Build Docker Image
+```
+
+Purpose
+
+- Build Docker image
+
+Example
+
+```
+demoproject/flask-app:1
+```
+
+Tag
+
+```
+latest
+```
+
+---
+
+## Stage 4
+
+```
+Docker Login
+```
+
+Purpose
+
+Authenticate with Docker Hub using Jenkins Credentials.
+
+Credentials Used
+
+```
+dockerhub-creds
+```
+
+---
+
+## Stage 5
+
+```
+Push Docker Image
+```
+
+Push
+
+```
+BUILD_NUMBER
+```
+
+and
+
+```
+latest
+```
+
+to Docker Hub.
+
+---
+
+## Stage 6
+
+```
+Verify Kubernetes Cluster
+```
+
+Purpose
+
+Verify Jenkins can communicate with Kubernetes.
+
+Command
+
+```bash
+kubectl get nodes
+```
+
+Expected Output
+
+```text
+NAME                 STATUS
+
+k8s-control-plane    Ready
+
+k8s-worker1          Ready
+
+k8s-worker2          Ready
+```
+
+---
+
+# Step 12 - Commit Jenkinsfile
+
+```bash
+git add .
+
+git commit -m "Added Jenkins Pipeline"
+
+git push origin main
+```
+
+---
+
+# Step 13 - Verify Jenkins Configuration
+
+Open
+
+```
+Dashboard
+
+↓
+
+Flask-CICD-Pipeline
+```
+
+Verify
+
+- Repository URL
+- Branch
+- Credentials
+- Jenkinsfile Path
+
+Everything should be configured correctly.
+
+---
+
+# Step 14 - Manual Pipeline Test
+
+Click
+
+```
+Build Now
+```
+
+The pipeline should execute.
+
+At this stage, the pipeline should complete the following:
+
+- Checkout Source Code
+- Build Docker Image
+- Docker Login
+- Push Docker Image
+- Verify Kubernetes Cluster
+
+Deployment to Kubernetes will be added in **Part 4C-2**.
+
+---
+
+# Verification Checklist
+
+Before moving to the next section, verify the following:
+
+- GitHub repository created
+- Jenkins Pipeline created
+- Jenkinsfile committed
+- Jenkins cloned the repository
+- Docker image built successfully
+- Docker image pushed to Docker Hub
+- Jenkins can execute `kubectl get nodes`
+- No pipeline errors
+
+---
+
+# Common Troubleshooting
+
+## Git Clone Failed
+
+Verify:
+
+- Repository URL
+- GitHub credentials
+- Branch name
+
+---
+
+## Docker Login Failed
+
+Verify:
+
+```
+dockerhub-creds
+```
+
+contains the correct Docker Hub username and password (or access token).
+
+---
+
+## Docker Build Failed
+
+Verify:
+
+- Dockerfile exists in the `application/` directory
+- Build context path is correct
+
+---
+
+## kubectl Connection Failed
+
+Verify:
+
+```bash
+kubectl get nodes
+```
+
+works when running as the `jenkins` user.
+
+Also check:
+
+- `/var/lib/jenkins/.kube/config`
+- Security Group allows TCP **6443**
+- Kubernetes API Server is reachable
+
+---
+
+# Learning Outcomes
+
+After completing this section, you have successfully:
+
+- Connected Jenkins to GitHub
+- Created a Pipeline project
+- Configured Jenkins to use SCM
+- Built Docker images automatically
+- Logged in to Docker Hub securely
+- Pushed Docker images to Docker Hub
+- Verified Kubernetes connectivity
+- Prepared the CI/CD pipeline for automated deployments
+
+---
+
+# Next Section
+
+In **Part 4C-2**, we will complete the CI/CD pipeline by:
+
+- Creating the Kubernetes deployment stage
+- Supporting **first-time deployment** (`kubectl apply`)
+- Supporting **rolling updates** (`kubectl set image`)
+- Waiting for the rollout to complete
+- Verifying Deployments, Pods, and Services
+- Configuring GitHub Webhooks for automatic pipeline execution
+- Demonstrating an end-to-end CI/CD workflow from GitHub to Kubernetes
+
+# Part 4B-2 - Integrating Jenkins with the Kubernetes Cluster
+
+In this section, we will integrate the Jenkins server with the Kubernetes cluster so that Jenkins can deploy applications directly to Kubernetes.
+
+At the end of this section, Jenkins will be able to:
+
+- Connect to the Kubernetes API Server
+- Execute `kubectl` commands
+- Deploy applications to Kubernetes
+- Perform rolling updates
+- Verify deployments
+
+---
+
+# Integration Architecture
+
+```text
+                     Jenkins Server
+                ┌─────────────────────┐
+                │      Jenkins        │
+                │---------------------│
+                │ kubectl             │
+                │ kubeconfig          │
+                │ Docker              │
+                └─────────┬───────────┘
+                          │
+                 Kubernetes API Server
+                     Port 6443
+                          │
+                          ▼
+               Kubernetes Control Plane
+                          │
+         ┌────────────────┴────────────────┐
+         ▼                                 ▼
+   Worker Node 1                     Worker Node 2
+```
+
+---
+
+# Prerequisites
+
+Before starting this section, verify:
+
+- Kubernetes cluster is healthy.
+- Jenkins is installed.
+- kubectl is installed on the Jenkins server.
+- Docker is installed.
+- Jenkins user belongs to the Docker group.
+
+Verify.
+
+```bash
+kubectl version --client
+
+docker version
+```
+
+---
+
+# Step 1 - Verify Kubernetes Cluster
+
+Login to the Control Plane.
+
+```bash
+kubectl get nodes
+```
+
+Expected
+
+```text
+NAME                 STATUS   ROLES
+
+k8s-control-plane    Ready    control-plane
+
+k8s-worker1          Ready
+
+k8s-worker2          Ready
+```
+
+---
+
+# Step 2 - Copy kubeconfig to Jenkins Server
+
+The Kubernetes cluster was created using the **root** user on the Control Plane.
+
+The kubeconfig file is located at:
+
+```text
+/etc/kubernetes/admin.conf
+```
+
+Copy it to the Jenkins server.
+
+Example
+
+```bash
+scp /etc/kubernetes/admin.conf \
+ec2-user@<Jenkins-Private-IP>:/home/ec2-user/
+```
+
+---
+
+# Step 3 - Create Jenkins kubeconfig Directory
+
+Login to the Jenkins server.
+
+```bash
+ssh ec2-user@<Jenkins-Public-IP>
+```
+
+Create the directory.
+
+```bash
+sudo mkdir -p /var/lib/jenkins/.kube
+```
+
+---
+
+# Step 4 - Move kubeconfig
+
+Move the configuration file.
+
+```bash
+sudo mv /home/ec2-user/admin.conf \
+/var/lib/jenkins/.kube/config
+```
+
+---
+
+# Step 5 - Change Ownership
+
+Grant Jenkins access.
+
+```bash
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube
+```
+
+Set permissions.
+
+```bash
+sudo chmod 600 /var/lib/jenkins/.kube/config
+```
+
+---
+
+# Step 6 - Configure KUBECONFIG
+
+Edit the Jenkins user's shell profile.
+
+```bash
+sudo vi /var/lib/jenkins/.bash_profile
+```
+
+Add
+
+```bash
+export KUBECONFIG=/var/lib/jenkins/.kube/config
+```
+
+Reload.
+
+```bash
+source /var/lib/jenkins/.bash_profile
+```
+
+---
+
+# Step 7 - Test Kubernetes Access
+
+Switch to the Jenkins user.
+
+```bash
+sudo su - jenkins
+```
+
+Verify.
+
+```bash
+kubectl get nodes
+```
+
+Expected
+
+```text
+NAME                 STATUS
+
+k8s-control-plane    Ready
+
+k8s-worker1          Ready
+
+k8s-worker2          Ready
+```
+
+---
+
+# Step 8 - Verify Cluster Information
+
+```bash
+kubectl cluster-info
+```
+
+Expected
+
+```text
+Kubernetes control plane is running at
+
+https://172.xx.xx.xx:6443
+```
+
+---
+
+# Step 9 - Verify Namespaces
+
+```bash
+kubectl get ns
+```
+
+Expected
+
+```text
+default
+
+kube-system
+
+kube-public
+
+kube-node-lease
+```
+
+---
+
+# Step 10 - Verify Deployments
+
+```bash
+kubectl get deployments -A
+```
+
+---
+
+# Step 11 - Verify Services
+
+```bash
+kubectl get svc -A
+```
+
+---
+
+# Step 12 - Verify Pods
+
+```bash
+kubectl get pods -A
+```
+
+---
+
+# Step 13 - Create a Test Namespace
+
+```bash
+kubectl create namespace demo
+```
+
+Verify.
+
+```bash
+kubectl get ns
+```
+
+---
+
+# Step 14 - Deploy a Test Application
+
+Create a deployment.
+
+```bash
+kubectl create deployment nginx \
+--image=nginx \
+-n demo
+```
+
+Verify.
+
+```bash
+kubectl get deployments -n demo
+```
+
+---
+
+# Step 15 - Expose the Application
+
+```bash
+kubectl expose deployment nginx \
+--type=NodePort \
+--port=80 \
+-n demo
+```
+
+Verify.
+
+```bash
+kubectl get svc -n demo
+```
+
+Expected
+
+```text
+NAME
+
+nginx
+
+TYPE
+
+NodePort
+```
+
+---
+
+# Step 16 - Scale the Deployment
+
+```bash
+kubectl scale deployment nginx \
+--replicas=3 \
+-n demo
+```
+
+Verify.
+
+```bash
+kubectl get pods -n demo -o wide
+```
+
+Expected
+
+```text
+3 Running Pods
+```
+
+---
+
+# Step 17 - Delete the Test Deployment
+
+```bash
+kubectl delete namespace demo
+```
+
+Verify.
+
+```bash
+kubectl get ns
+```
+
+---
+
+# Step 18 - Configure Jenkins Environment Variables (Optional)
+
+Navigate to
+
+```
+Manage Jenkins
+
+↓
+
+System
+
+↓
+
+Global Properties
+```
+
+Enable
+
+```
+Environment Variables
+```
+
+Add
+
+| Name | Value |
+|------|-------|
+| KUBECONFIG | /var/lib/jenkins/.kube/config |
+
+Save the configuration.
+
+> This step is optional if the Jenkins pipeline explicitly exports `KUBECONFIG` before running `kubectl`.
+
+---
+
+# Step 19 - Restart Jenkins
+
+```bash
+sudo systemctl restart jenkins
+```
+
+Verify.
+
+```bash
+sudo systemctl status jenkins
+```
+
+---
+
+# Step 20 - Verify Jenkins User
+
+```bash
+sudo su - jenkins
+
+kubectl get nodes
+```
+
+If the nodes are displayed successfully, Jenkins can communicate with the Kubernetes cluster.
+
+---
+
+# Verification Checklist
+
+Verify the following:
+
+- kubectl installed
+- kubeconfig copied
+- Jenkins user owns kubeconfig
+- kubectl get nodes works
+- kubectl get pods works
+- kubectl get svc works
+- Jenkins can deploy resources
+- Jenkins can delete resources
+
+---
+
+# Common Troubleshooting
+
+## Unable to Connect to the Cluster
+
+Verify the API server is reachable.
+
+```bash
+kubectl cluster-info
+```
+
+If you see a timeout:
+
+- Confirm the Control Plane is running.
+- Verify Security Group allows TCP **6443**.
+- Ensure Jenkins and the Control Plane are in the same VPC.
+- Check that the Control Plane's private IP in the kubeconfig is correct.
+
+---
+
+## Permission Denied
+
+Verify ownership.
+
+```bash
+ls -l /var/lib/jenkins/.kube
+```
+
+Expected owner:
+
+```text
+jenkins jenkins
+```
+
+Fix if necessary.
+
+```bash
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube
+```
+
+---
+
+## Connection Refused
+
+Check the Kubernetes API Server.
+
+```bash
+kubectl get pods -n kube-system
+```
+
+Verify the API Server pod is running.
+
+---
+
+## memcache.go Errors
+
+Example
+
+```text
+couldn't get current server API group list
+```
+
+Possible causes:
+
+- Incorrect kubeconfig
+- Network connectivity issues
+- API Server unavailable
+- Port 6443 blocked
+
+---
+
+# Learning Outcomes
+
+After completing this section, you have successfully:
+
+- Connected Jenkins to the Kubernetes cluster
+- Configured kubeconfig for the Jenkins user
+- Verified cluster connectivity
+- Tested Kubernetes deployments
+- Confirmed Jenkins can execute kubectl commands
+- Prepared Jenkins for automated CI/CD deployments
+
+---
+
+# Next Section
+
+In **Part 4C**, we will build the complete Jenkins CI/CD pipeline.
+
+The pipeline will:
+
+- Clone the application from GitHub
+- Build the Docker image
+- Tag the image with the Jenkins build number
+- Push the image to Docker Hub
+- Deploy the application to Kubernetes
+- Perform a rolling update
+- Verify the rollout
+- Display Deployments, Pods, and Services
+- Validate the application deployment automatically
+
+  # Part 4C-1 - Creating the Jenkins CI/CD Pipeline
+
+In this section, we will configure Jenkins to automate the complete application deployment process.
+
+By the end of this section, Jenkins will be able to:
+
+- Clone source code from GitHub
+- Build the Docker image
+- Tag the Docker image
+- Push the image to Docker Hub
+- Connect to the Kubernetes cluster
+- Deploy the application
+- Perform rolling updates
+
+> **Note:** In this section, we will configure the Jenkins Pipeline. The actual execution and verification of the pipeline will be covered in **Part 4C-2**.
+
+---
+
+# CI/CD Workflow
+
+```text
+              Developer
+                  │
+                  ▼
+         Push Code to GitHub
+                  │
+                  ▼
+         Jenkins Pipeline Triggered
+                  │
+      ┌───────────┴───────────┐
+      ▼                       ▼
+ Checkout Code         Build Docker Image
+      │                       │
+      └───────────┬───────────┘
+                  ▼
+          Push to Docker Hub
+                  │
+                  ▼
+      Deploy to Kubernetes
+                  │
+                  ▼
+          Rolling Update
+                  │
+                  ▼
+         Verify Deployment
+```
+
+---
+
+# Step 1 - Create a GitHub Repository
+
+Create a new GitHub repository.
+
+Example
+
+```
+demoproject_devops_project2
+```
+
+---
+
+# Step 2 - Clone the Repository
+
+Clone the repository to your local machine.
+
+```bash
+git clone https://github.com/<GitHub-Username>/demoproject_devops_project2.git
+```
+
+Move into the repository.
+
+```bash
+cd demoproject_devops_project2
+```
+
+---
+
+# Step 3 - Repository Structure
+
+Your repository should look like:
+
+```text
+demoproject_devops_project2/
+
+├── application/
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── Dockerfile
+│
+├── kubernetes/
+│   ├── namespace.yaml
+│   ├── deployment.yaml
+│   └── service.yaml
+│
+├── terraform/
+│
+├── monitoring/
+│
+├── jenkins/
+│   └── Jenkinsfile
+│
+├── docs/
+│
+└── README.md
+```
+
+---
+
+# Step 4 - Push the Initial Project
+
+```bash
+git add .
+
+git commit -m "Initial Project"
+
+git push origin main
+```
+
+Verify the project appears in GitHub.
+
+---
+
+# Step 5 - Create a New Jenkins Pipeline
+
+Open Jenkins.
+
+```
+Dashboard
+
+↓
+
+New Item
+```
+
+Project Name
+
+```
+Flask-CICD-Pipeline
+```
+
+Project Type
+
+```
+Pipeline
+```
+
+Click
+
+```
+OK
+```
+
+---
+
+# Step 6 - Configure General Settings
+
+Enable
+
+```
+Discard Old Builds
+```
+
+Example
+
+```
+Days to keep builds
+
+30
+```
+
+---
+
+# Step 7 - Configure Build Triggers
+
+For now, leave **Build Triggers** disabled.
+
+We will configure **GitHub Webhooks** in **Part 4C-2**.
+
+For testing, we will manually trigger the pipeline.
+
+---
+
+# Step 8 - Configure Pipeline Definition
+
+Navigate to
+
+```
+Pipeline
+
+↓
+
+Definition
+```
+
+Select
+
+```
+Pipeline script from SCM
+```
+
+---
+
+# Step 9 - Configure Source Code Management
+
+SCM
+
+```
+Git
+```
+
+Repository URL
+
+```
+https://github.com/<GitHub-Username>/demoproject_devops_project2.git
+```
+
+Credentials
+
+```
+github-creds
+```
+
+Branch
+
+```
+*/main
+```
+
+Script Path
+
+```
+jenkins/Jenkinsfile
+```
+
+Save the configuration.
+
+---
+
+# Step 10 - Jenkinsfile Location
+
+Create the following file inside the repository.
+
+```text
+jenkins/
+
+└── Jenkinsfile
+```
+
+---
+
+# Step 11 - Create the Jenkinsfile
+
+```groovy
+pipeline {
+
+    agent any
+
+    environment {
+
+        IMAGE_NAME = "demoproject/flask-app"
+
+        TAG = "${BUILD_NUMBER}"
+
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+
+    }
+
+    stages {
+
+        stage('Checkout Source Code') {
+
+            steps {
+
+                checkout scm
+
+            }
+
+        }
+
+        stage('Verify Workspace') {
+
+            steps {
+
+                sh 'pwd'
+
+                sh 'ls -lrt'
+
+            }
+
+        }
+
+        stage('Build Docker Image') {
+
+            steps {
+
+                sh '''
+                docker build -t $IMAGE_NAME:$TAG application/
+                docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
+                '''
+
+            }
+
+        }
+
+        stage('Docker Login') {
+
+            steps {
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login \
+                    -u "$DOCKER_USER" \
+                    --password-stdin
+                    '''
+
+                }
+
+            }
+
+        }
+
+        stage('Push Docker Image') {
+
+            steps {
+
+                sh '''
+                docker push $IMAGE_NAME:$TAG
+
+                docker push $IMAGE_NAME:latest
+                '''
+
+            }
+
+        }
+
+        stage('Verify Kubernetes Cluster') {
+
+            steps {
+
+                sh '''
+
+                export KUBECONFIG=$KUBECONFIG
+
+                kubectl get nodes
+
+                '''
+
+            }
+
+        }
+
+    }
+
+}
+```
+
+---
+
+# Pipeline Stage Explanation
+
+## Stage 1
+
+```
+Checkout Source Code
+```
+
+Purpose
+
+- Clone GitHub Repository
+
+---
+
+## Stage 2
+
+```
+Verify Workspace
+```
+
+Purpose
+
+- Display workspace
+- Verify repository cloned successfully
+
+Commands
+
+```bash
+pwd
+
+ls -lrt
+```
+
+---
+
+## Stage 3
+
+```
+Build Docker Image
+```
+
+Purpose
+
+- Build Docker image
+
+Example
+
+```
+demoproject/flask-app:1
+```
+
+Tag
+
+```
+latest
+```
+
+---
+
+## Stage 4
+
+```
+Docker Login
+```
+
+Purpose
+
+Authenticate with Docker Hub using Jenkins Credentials.
+
+Credentials Used
+
+```
+dockerhub-creds
+```
+
+---
+
+## Stage 5
+
+```
+Push Docker Image
+```
+
+Push
+
+```
+BUILD_NUMBER
+```
+
+and
+
+```
+latest
+```
+
+to Docker Hub.
+
+---
+
+## Stage 6
+
+```
+Verify Kubernetes Cluster
+```
+
+Purpose
+
+Verify Jenkins can communicate with Kubernetes.
+
+Command
+
+```bash
+kubectl get nodes
+```
+
+Expected Output
+
+```text
+NAME                 STATUS
+
+k8s-control-plane    Ready
+
+k8s-worker1          Ready
+
+k8s-worker2          Ready
+```
+
+---
+
+# Step 12 - Commit Jenkinsfile
+
+```bash
+git add .
+
+git commit -m "Added Jenkins Pipeline"
+
+git push origin main
+```
+
+---
+
+# Step 13 - Verify Jenkins Configuration
+
+Open
+
+```
+Dashboard
+
+↓
+
+Flask-CICD-Pipeline
+```
+
+Verify
+
+- Repository URL
+- Branch
+- Credentials
+- Jenkinsfile Path
+
+Everything should be configured correctly.
+
+---
+
+# Step 14 - Manual Pipeline Test
+
+Click
+
+```
+Build Now
+```
+
+The pipeline should execute.
+
+At this stage, the pipeline should complete the following:
+
+- Checkout Source Code
+- Build Docker Image
+- Docker Login
+- Push Docker Image
+- Verify Kubernetes Cluster
+
+Deployment to Kubernetes will be added in **Part 4C-2**.
+
+---
+
+# Verification Checklist
+
+Before moving to the next section, verify the following:
+
+- GitHub repository created
+- Jenkins Pipeline created
+- Jenkinsfile committed
+- Jenkins cloned the repository
+- Docker image built successfully
+- Docker image pushed to Docker Hub
+- Jenkins can execute `kubectl get nodes`
+- No pipeline errors
+
+---
+
+# Common Troubleshooting
+
+## Git Clone Failed
+
+Verify:
+
+- Repository URL
+- GitHub credentials
+- Branch name
+
+---
+
+## Docker Login Failed
+
+Verify:
+
+```
+dockerhub-creds
+```
+
+contains the correct Docker Hub username and password (or access token).
+
+---
+
+## Docker Build Failed
+
+Verify:
+
+- Dockerfile exists in the `application/` directory
+- Build context path is correct
+
+---
+
+## kubectl Connection Failed
+
+Verify:
+
+```bash
+kubectl get nodes
+```
+
+works when running as the `jenkins` user.
+
+Also check:
+
+- `/var/lib/jenkins/.kube/config`
+- Security Group allows TCP **6443**
+- Kubernetes API Server is reachable
+
+---
+
+# Learning Outcomes
+
+After completing this section, you have successfully:
+
+- Connected Jenkins to GitHub
+- Created a Pipeline project
+- Configured Jenkins to use SCM
+- Built Docker images automatically
+- Logged in to Docker Hub securely
+- Pushed Docker images to Docker Hub
+- Verified Kubernetes connectivity
+- Prepared the CI/CD pipeline for automated deployments
+
+---
+
+# Next Section
+
+In **Part 4C-2**, we will complete the CI/CD pipeline by:
+
+- Creating the Kubernetes deployment stage
+- Supporting **first-time deployment** (`kubectl apply`)
+- Supporting **rolling updates** (`kubectl set image`)
+- Waiting for the rollout to complete
+- Verifying Deployments, Pods, and Services
+- Configuring GitHub Webhooks for automatic pipeline execution
+- Demonstrating an end-to-end CI/CD workflow from GitHub to Kubernetes
+
+  # Part 4C-2A - Deploying the Application to Kubernetes using Jenkins
+
+In this section, we will complete the Jenkins Pipeline by adding the deployment stages.
+
+The pipeline will be intelligent enough to:
+
+- Deploy the application for the first time if no deployment exists.
+- Perform a Rolling Update if the application is already deployed.
+- Wait for the deployment rollout to complete.
+- Verify the deployment.
+- Display Pods, Deployments, and Services.
+
+At the end of this section, every GitHub commit will be capable of deploying a new version of the application to Kubernetes.
+
+---
+
+# Complete CI/CD Workflow
+
+```text
+                Developer
+                    │
+                    ▼
+             Push Code to GitHub
+                    │
+                    ▼
+              Jenkins Pipeline
+                    │
+        ┌───────────┼────────────┐
+        ▼           ▼            ▼
+ Checkout      Build Image   Docker Login
+        │           │            │
+        └───────────┼────────────┘
+                    ▼
+            Push Image to Docker Hub
+                    │
+                    ▼
+        Check Kubernetes Deployment
+                    │
+          ┌─────────┴───────────┐
+          │                     │
+          ▼                     ▼
+ First Deployment         Rolling Update
+          │                     │
+          └─────────┬───────────┘
+                    ▼
+             Wait for Rollout
+                    │
+                    ▼
+           Verify Deployment
+                    │
+                    ▼
+             Application Ready
+```
+
+---
+
+# CI/CD Pipeline Stages
+
+The completed pipeline consists of:
+
+1. Checkout Source Code
+2. Verify Workspace
+3. Build Docker Image
+4. Docker Login
+5. Push Docker Image
+6. Verify Kubernetes Cluster
+7. Deploy Application
+8. Wait for Rollout
+9. Verify Deployment
+
+---
+
+# Replace the Jenkinsfile
+
+Replace the existing Jenkinsfile with the following version.
+
+```groovy
+pipeline {
+
+    agent any
+
+    environment {
+
+        IMAGE_NAME = "demoproject/flask-app"
+        TAG = "${BUILD_NUMBER}"
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+
+    }
+
+    stages {
+
+        stage('Checkout Source Code') {
+
+            steps {
+                checkout scm
+            }
+
+        }
+
+        stage('Verify Workspace') {
+
+            steps {
+
+                sh '''
+                pwd
+                ls -lrt
+                '''
+
+            }
+
+        }
+
+        stage('Build Docker Image') {
+
+            steps {
+
+                sh '''
+                docker build -t $IMAGE_NAME:$TAG application/
+                docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
+                '''
+
+            }
+
+        }
+
+        stage('Docker Login') {
+
+            steps {
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login \
+                    -u "$DOCKER_USER" \
+                    --password-stdin
+                    '''
+
+                }
+
+            }
+
+        }
+
+        stage('Push Docker Image') {
+
+            steps {
+
+                sh '''
+                docker push $IMAGE_NAME:$TAG
+                docker push $IMAGE_NAME:latest
+                '''
+
+            }
+
+        }
+
+        stage('Verify Kubernetes Cluster') {
+
+            steps {
+
+                sh '''
+                export KUBECONFIG=$KUBECONFIG
+                kubectl get nodes
+                '''
+
+            }
+
+        }
+
+        stage('Deploy Application') {
+
+            steps {
+
+                sh '''
+
+                export KUBECONFIG=$KUBECONFIG
+
+                if kubectl get deployment flask-deployment >/dev/null 2>&1
+                then
+
+                    echo "Deployment already exists"
+
+                    kubectl set image deployment/flask-deployment \
+                    flask=$IMAGE_NAME:$TAG
+
+                else
+
+                    echo "First Deployment"
+
+                    kubectl apply -f kubernetes/namespace.yaml
+
+                    kubectl apply -f kubernetes/deployment.yaml
+
+                    kubectl apply -f kubernetes/service.yaml
+
+                    kubectl set image deployment/flask-deployment \
+                    flask=$IMAGE_NAME:$TAG
+
+                fi
+
+                '''
+
+            }
+
+        }
+
+        stage('Wait For Rollout') {
+
+            steps {
+
+                sh '''
+
+                export KUBECONFIG=$KUBECONFIG
+
+                kubectl rollout status deployment/flask-deployment \
+                --timeout=300s
+
+                '''
+
+            }
+
+        }
+
+        stage('Verify Deployment') {
+
+            steps {
+
+                sh '''
+
+                export KUBECONFIG=$KUBECONFIG
+
+                echo "========== Deployments =========="
+
+                kubectl get deployment
+
+                echo "========== Pods =========="
+
+                kubectl get pods -o wide
+
+                echo "========== Services =========="
+
+                kubectl get svc
+
+                echo "========== Images =========="
+
+                kubectl describe deployment flask-deployment | grep Image
+
+                '''
+
+            }
+
+        }
+
+    }
+
+}
+```
+
+---
+
+# Stage Explanation
+
+## Checkout Source Code
+
+Downloads the latest application source code from GitHub.
+
+---
+
+## Verify Workspace
+
+Displays the Jenkins workspace.
+
+Commands
+
+```bash
+pwd
+
+ls -lrt
+```
+
+---
+
+## Build Docker Image
+
+Creates the Docker image.
+
+Example
+
+```
+demoproject/flask-app:15
+```
+
+Also creates
+
+```
+latest
+```
+
+tag.
+
+---
+
+## Docker Login
+
+Logs into Docker Hub using Jenkins Credentials.
+
+Credentials
+
+```
+dockerhub-creds
+```
+
+---
+
+## Push Docker Image
+
+Uploads
+
+```
+BUILD_NUMBER
+```
+
+and
+
+```
+latest
+```
+
+to Docker Hub.
+
+---
+
+## Verify Kubernetes Cluster
+
+Verifies Jenkins can communicate with Kubernetes.
+
+```bash
+kubectl get nodes
+```
+
+---
+
+## Deploy Application
+
+This stage contains intelligent deployment logic.
+
+### First Deployment
+
+If the deployment does not exist,
+
+Jenkins automatically executes
+
+```bash
+kubectl apply -f kubernetes/namespace.yaml
+
+kubectl apply -f kubernetes/deployment.yaml
+
+kubectl apply -f kubernetes/service.yaml
+```
+
+Then updates the image
+
+```bash
+kubectl set image deployment/flask-deployment \
+flask=$IMAGE_NAME:$TAG
+```
+
+---
+
+### Rolling Update
+
+If the Deployment already exists,
+
+Jenkins skips the YAML creation and executes
+
+```bash
+kubectl set image deployment/flask-deployment \
+flask=$IMAGE_NAME:$TAG
+```
+
+This performs a Rolling Update.
+
+---
+
+## Wait For Rollout
+
+Jenkins waits until the deployment becomes healthy.
+
+```bash
+kubectl rollout status deployment/flask-deployment \
+--timeout=300s
+```
+
+---
+
+## Verify Deployment
+
+Displays
+
+Deployments
+
+Pods
+
+Services
+
+Running Docker Image
+
+---
+
+# Expected Pipeline Flow
+
+First Build
+
+```text
+Checkout
+
+↓
+
+Build Image
+
+↓
+
+Docker Login
+
+↓
+
+Push Image
+
+↓
+
+Create Namespace
+
+↓
+
+Create Deployment
+
+↓
+
+Create Service
+
+↓
+
+Update Image
+
+↓
+
+Rollout
+
+↓
+
+Verification
+```
+
+---
+
+Second Build
+
+```text
+Checkout
+
+↓
+
+Build Image
+
+↓
+
+Push Image
+
+↓
+
+Deployment Exists
+
+↓
+
+Rolling Update
+
+↓
+
+Rollout
+
+↓
+
+Verification
+```
+
+---
+
+# Verify the Jenkinsfile
+
+Commit the updated Jenkinsfile.
+
+```bash
+git add .
+
+git commit -m "Completed Jenkins Deployment Pipeline"
+
+git push origin main
+```
+
+---
+
+# Manual Test
+
+Open Jenkins.
+
+```
+Dashboard
+
+↓
+
+Flask-CICD-Pipeline
+```
+
+Click
+
+```
+Build Now
+```
+
+Watch the stages execute.
+
+Expected
+
+```
+Checkout
+
+✔
+
+Build
+
+✔
+
+Docker Login
+
+✔
+
+Push
+
+✔
+
+Deploy
+
+✔
+
+Rollout
+
+✔
+
+Verification
+
+✔
+```
+
+---
+
+# Verification Commands
+
+Verify Deployment
+
+```bash
+kubectl get deployment
+```
+
+Verify Pods
+
+```bash
+kubectl get pods -o wide
+```
+
+Verify Services
+
+```bash
+kubectl get svc
+```
+
+Describe Deployment
+
+```bash
+kubectl describe deployment flask-deployment
+```
+
+Verify Image
+
+```bash
+kubectl describe deployment flask-deployment | grep Image
+```
+
+---
+
+# Expected Output
+
+```text
+NAME
+
+flask-deployment
+
+READY
+
+2/2
+
+UP-TO-DATE
+
+2
+
+AVAILABLE
+
+2
+```
+
+---
+
+# Common Errors
+
+## Deployment Not Found
+
+This occurs when the deployment has never been created.
+
+The pipeline automatically fixes this by executing
+
+```
+kubectl apply
+```
+
+before
+
+```
+kubectl set image
+```
+
+---
+
+## ImagePullBackOff
+
+Verify
+
+- Docker image exists
+- Docker image name matches deployment.yaml
+- Docker Hub repository is public or imagePullSecrets are configured
+
+---
+
+## Rollout Timeout
+
+Check
+
+```bash
+kubectl describe pod <pod-name>
+```
+
+Check events
+
+```bash
+kubectl get events
+```
+
+---
+
+## kubectl set image Failed
+
+Verify
+
+```bash
+kubectl get deployment
+```
+
+Confirm the deployment name is
+
+```
+flask-deployment
+```
+
+---
+
+# Learning Outcomes
+
+After completing this section, you have successfully:
+
+- Built a complete Jenkins CI/CD Pipeline
+- Implemented first-time deployment logic
+- Implemented rolling updates
+- Automated Kubernetes deployments
+- Verified deployments automatically
+- Prepared the pipeline for GitHub Webhook integration
+
+---
+
+# Next Section
+
+In **Part 4C-2B**, we will:
+
+- Configure GitHub Webhooks
+- Automatically trigger Jenkins builds after every GitHub push
+- Demonstrate a complete end-to-end CI/CD workflow
+- Validate the deployed Flask application
+- Perform application updates and observe rolling deployments
+- Add CI/CD troubleshooting and production best practices
+
+# Part 4C-2B - Automating CI/CD using GitHub Webhooks
+
+In this section, we will automate the complete CI/CD process by integrating GitHub with Jenkins using **GitHub Webhooks**.
+
+Once configured, every code push to GitHub will automatically trigger the Jenkins Pipeline.
+
+By the end of this section, the complete CI/CD workflow will be:
+
+Developer Push Code
+
+↓
+
+GitHub Webhook
+
+↓
+
+Jenkins Pipeline
+
+↓
+
+Build Docker Image
+
+↓
+
+Push Docker Image
+
+↓
+
+Deploy to Kubernetes
+
+↓
+
+Rolling Update
+
+↓
+
+Application Updated
+
+---
+
+# End-to-End CI/CD Architecture
+
+```text
+                    Developer
+                        │
+        git add .
+        git commit
+        git push
+                        │
+                        ▼
+                 GitHub Repository
+                        │
+                 GitHub Webhook
+                        │
+                        ▼
+                 Jenkins Pipeline
+                        │
+        ┌───────────────┼────────────────┐
+        ▼               ▼                ▼
+   Checkout        Build Image      Docker Login
+        │               │                │
+        └───────────────┼────────────────┘
+                        ▼
+              Push Image to Docker Hub
+                        │
+                        ▼
+              Kubernetes Deployment
+                        │
+                 Rolling Update
+                        │
+                        ▼
+                Verify Deployment
+                        │
+                        ▼
+               Flask Application
+```
+
+---
+
+# Step 1 - Enable GitHub Webhook Trigger
+
+Open Jenkins
+
+```
+Dashboard
+
+↓
+
+Flask-CICD-Pipeline
+
+↓
+
+Configure
+```
+
+Scroll to
+
+```
+Build Triggers
+```
+
+Enable
+
+```
+GitHub hook trigger for GITScm polling
+```
+
+Click
+
+```
+Save
+```
+
+---
+
+# Step 2 - Generate Jenkins Webhook URL
+
+The Jenkins webhook endpoint is
+
+```
+http://<Jenkins-Public-IP>:8080/github-webhook/
+```
+
+Example
+
+```
+http://18.xxx.xxx.xxx:8080/github-webhook/
+```
+
+---
+
+# Step 3 - Configure GitHub Webhook
+
+Open GitHub
+
+```
+Repository
+
+↓
+
+Settings
+
+↓
+
+Webhooks
+
+↓
+
+Add Webhook
+```
+
+Configure
+
+| Field | Value |
+|---------|--------|
+| Payload URL | http://JENKINS-IP:8080/github-webhook/ |
+| Content Type | application/json |
+| Secret | Leave Blank |
+| SSL Verification | Disable (Lab) |
+| Events | Just the Push Event |
+
+Click
+
+```
+Add Webhook
+```
+
+---
+
+# Step 4 - Verify Webhook
+
+GitHub should display
+
+```
+Recent Deliveries
+
+↓
+
+200 OK
+```
+
+If you receive
+
+```
+404
+```
+
+Verify the URL.
+
+If you receive
+
+```
+403
+```
+
+Check the Jenkins Security Configuration.
+
+---
+
+# Step 5 - Test Automatic Build
+
+Modify the Flask application.
+
+Example
+
+```python
+return "Welcome to DEMO Project Version 2"
+```
+
+Save the file.
+
+Commit the changes.
+
+```bash
+git add .
+
+git commit -m "Updated Homepage"
+
+git push origin main
+```
+
+---
+
+# Step 6 - Observe Jenkins
+
+Open
+
+```
+Dashboard
+
+↓
+
+Flask-CICD-Pipeline
+```
+
+Without clicking **Build Now**, Jenkins should automatically start a new build.
+
+Expected Build Flow
+
+```
+Checkout
+
+↓
+
+Build
+
+↓
+
+Docker Login
+
+↓
+
+Push
+
+↓
+
+Deploy
+
+↓
+
+Rollout
+
+↓
+
+Verification
+```
+
+---
+
+# Step 7 - Verify Docker Hub
+
+Open Docker Hub.
+
+Verify a new image appears.
+
+Example
+
+```
+demoproject/flask-app
+
+Tag
+
+15
+
+latest
+```
+
+Every build generates a new image tag based on the Jenkins build number.
+
+---
+
+# Step 8 - Verify Kubernetes Deployment
+
+```bash
+kubectl get deployment
+```
+
+Expected
+
+```text
+NAME
+
+flask-deployment
+
+READY
+
+2/2
+```
+
+---
+
+# Step 9 - Verify Pods
+
+```bash
+kubectl get pods -o wide
+```
+
+Notice that Kubernetes creates new Pods and gradually terminates the old ones.
+
+This is called a **Rolling Update**.
+
+---
+
+# Step 10 - Watch the Rolling Update
+
+Open a new terminal.
+
+Run
+
+```bash
+watch kubectl get pods -o wide
+```
+
+While the pipeline is running, you will observe:
+
+Old Pods
+
+↓
+
+New Pods Created
+
+↓
+
+Traffic Shifted
+
+↓
+
+Old Pods Deleted
+
+No downtime occurs during the update.
+
+---
+
+# Step 11 - Verify the Application
+
+Access the application.
+
+```
+http://<Worker-IP>:<NodePort>
+```
+
+Example
+
+```
+http://18.xxx.xxx.xxx:30080
+```
+
+You should see
+
+```
+Welcome to DEMO Project
+
+Running on Kubernetes
+
+Version 2
+```
+
+---
+
+# Step 12 - Verify Deployment History
+
+```bash
+kubectl rollout history deployment flask-deployment
+```
+
+Example
+
+```text
+REVISION
+
+1
+
+2
+
+3
+
+4
+```
+
+Each Jenkins build creates a new deployment revision.
+
+---
+
+# Step 13 - Roll Back the Deployment
+
+If the latest version contains an issue, roll back to the previous revision.
+
+```bash
+kubectl rollout undo deployment/flask-deployment
+```
+
+Verify
+
+```bash
+kubectl rollout history deployment/flask-deployment
+```
+
+---
+
+# Step 14 - Verify Current Image
+
+```bash
+kubectl describe deployment flask-deployment | grep Image
+```
+
+Example
+
+```text
+Image:
+
+demoproject/flask-app:15
+```
+
+---
+
+# Step 15 - Observe Pipeline Console Output
+
+Open
+
+```
+Build History
+
+↓
+
+Build #15
+
+↓
+
+Console Output
+```
+
+Review each stage.
+
+```
+Checkout
+
+Build
+
+Push
+
+Deploy
+
+Verification
+```
+
+---
+
+# CI/CD Demonstration (Classroom Lab)
+
+## Demo 1 – Automatic Build
+
+Modify
+
+```
+app.py
+```
+
+Push the code.
+
+Observe Jenkins automatically building the application.
+
+---
+
+## Demo 2 – Docker Image
+
+Show
+
+Docker Hub
+
+↓
+
+New Image Tag
+
+Example
+
+```
+16
+
+17
+
+18
+
+latest
+```
+
+Explain that every build creates a new immutable image.
+
+---
+
+## Demo 3 – Rolling Update
+
+Run
+
+```bash
+watch kubectl get pods -o wide
+```
+
+Trigger another build.
+
+Observe
+
+```
+Old Pods
+
+↓
+
+New Pods
+
+↓
+
+Traffic Shift
+
+↓
+
+Old Pods Deleted
+```
+
+Explain the Rolling Update strategy.
+
+---
+
+## Demo 4 – Application Update
+
+Refresh the browser.
+
+Students should observe the updated application without any downtime.
+
+---
+
+## Demo 5 – Rollback
+
+Run
+
+```bash
+kubectl rollout undo deployment/flask-deployment
+```
+
+Refresh the browser.
+
+Explain how Kubernetes restores the previous version.
+
+---
+
+# Verification Commands
+
+Deployment
+
+```bash
+kubectl get deployment
+```
+
+Pods
+
+```bash
+kubectl get pods -o wide
+```
+
+Services
+
+```bash
+kubectl get svc
+```
+
+ReplicaSets
+
+```bash
+kubectl get rs
+```
+
+Namespaces
+
+```bash
+kubectl get ns
+```
+
+Images
+
+```bash
+kubectl describe deployment flask-deployment | grep Image
+```
+
+Rollout History
+
+```bash
+kubectl rollout history deployment/flask-deployment
+```
+
+---
+
+# Common Troubleshooting
+
+## Webhook Not Triggering
+
+Verify
+
+- GitHub Webhook URL
+- Jenkins is accessible from GitHub
+- Build Trigger is enabled
+
+---
+
+## Docker Push Failed
+
+Verify
+
+```
+dockerhub-creds
+```
+
+Check Docker Hub permissions.
+
+---
+
+## Deployment Failed
+
+Verify
+
+```bash
+kubectl get pods
+```
+
+Describe the failing Pod.
+
+```bash
+kubectl describe pod <pod-name>
+```
+
+---
+
+## ImagePullBackOff
+
+Verify
+
+- Image exists
+- Image name matches deployment.yaml
+- Repository is public or imagePullSecrets are configured
+
+---
+
+## Rollout Failed
+
+Check
+
+```bash
+kubectl rollout status deployment/flask-deployment
+```
+
+Describe Pods
+
+```bash
+kubectl describe pod <pod-name>
+```
+
+---
+
+# Production Best Practices
+
+✔ Store all secrets in Jenkins Credentials.
+
+✔ Use Docker Hub Access Tokens instead of passwords.
+
+✔ Protect the `main` branch with pull requests.
+
+✔ Enable webhook authentication and HTTPS.
+
+✔ Keep Kubernetes manifests under version control.
+
+✔ Tag Docker images with immutable versions.
+
+✔ Never deploy the `latest` tag in production.
+
+✔ Use Rolling Updates with readiness and liveness probes.
+
+✔ Use resource requests and limits for all containers.
+
+✔ Enable monitoring with Prometheus and Grafana.
+
+✔ Configure Alertmanager for production alerts.
+
+✔ Use RBAC and ServiceAccounts instead of the Kubernetes admin kubeconfig for Jenkins in production.
+
+---
+
+# Learning Outcomes
+
+After completing this section, you have successfully:
+
+- Configured GitHub Webhooks
+- Automated the Jenkins CI/CD Pipeline
+- Implemented Continuous Integration
+- Implemented Continuous Deployment
+- Built Docker images automatically
+- Published images to Docker Hub
+- Performed Kubernetes Rolling Updates
+- Verified application deployments
+- Demonstrated zero-downtime deployments
+- Learned how to roll back failed releases
+- Built a complete end-to-end DevOps CI/CD pipeline
+
+---
+
+# Completed CI/CD Pipeline
+
+Congratulations!
+
+You have successfully implemented an end-to-end CI/CD pipeline using:
+
+- GitHub
+- Jenkins
+- Docker
+- Docker Hub
+- Kubernetes (kubeadm)
+- Rolling Updates
+- GitHub Webhooks
+
+The pipeline automatically:
+
+1. Detects code changes in GitHub.
+2. Builds a Docker image.
+3. Tags the image with the Jenkins build number.
+4. Pushes the image to Docker Hub.
+5. Deploys the application to Kubernetes.
+6. Performs a rolling update.
+7. Verifies the deployment.
+8. Makes the updated application available with minimal downtime.
+
+---
+
+# Next Section
+
+In **Part 5**, we will deploy the **Python Flask application** to Kubernetes, create the Kubernetes manifests (`namespace.yaml`, `deployment.yaml`, `service.yaml`), and then install **Prometheus**, **Grafana**, and **Alertmanager** using **Helm** to implement complete monitoring and observability for the cluster.
+
