@@ -1,4 +1,4 @@
-# Part 4A - Installing and Configuring the Jenkins Server
+# Part 4- Installing and Configuring the Jenkins Server
 
 In this section, we will prepare the Jenkins Server for Continuous Integration and Continuous Deployment (CI/CD).
 
@@ -70,7 +70,7 @@ hostname
 Expected Output
 
 ```text
-jenkins-server
+jenkins-server  else change the hostname 
 ```
 
 ---
@@ -104,7 +104,7 @@ java -version
 Expected Output
 
 ```text
-openjdk version "17"
+openjdk version "17" 
 ```
 
 ---
