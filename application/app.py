@@ -39,7 +39,7 @@ HTML = """
     <h1>🚀 CI/CD Demo project: Application Deployment </h1>
     <h2>Version 3</h2>
 
-    <p>Successfully deployed by Debdip Ghosh:</p>
+    <p>Successfully deployed by Vikas Mishra:</p>
 
     <p>
         GitHub → Jenkins → Docker → Docker Hub → Kubernetes
@@ -49,7 +49,7 @@ HTML = """
 </div>
 
 <div class="footer">
-    Created by Debdip Ghosh
+    Created by Vikas Mishra
 </div>
 
 </body>
