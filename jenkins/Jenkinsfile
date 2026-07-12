@@ -1,45 +1,12 @@
-pipeline {
-    agent any
+stage('Docker Login') {
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
+        usernameVariable: 'DOCKER_USER',
+        passwordVariable: 'DOCKER_PASS')]) {
 
-    environment {
-        IMAGE_NAME = "vikas1432/cicd-demo"
-    }
-
-    stages {
-
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                bat 'docker build -t %IMAGE_NAME%:%BUILD_NUMBER% application'
-            }
-        }
-
-        stage('Docker Login') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
-                usernameVariable: 'DOCKER_USER',
-                passwordVariable: 'DOCKER_PASS')]) {
-
-                    bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
-                }
-            }
-        }
-
-        stage('Push Image') {
-            steps {
-                bat 'docker push %IMAGE_NAME%:%BUILD_NUMBER%'
-            }
-        }
-    }
-
-    post {
-        always {
-            cleanWs()
+            bat '''
+            docker login -u %DOCKER_USER% -p %DOCKER_PASS%
+            '''
         }
     }
 }
